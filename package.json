@@ -1,0 +1,24 @@
+{
+  "name": "image-generator",
+  "version": "1.0.0",
+  "description": "ai image generator",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiro7shiro/image-generator.git"
+  },
+  "author": "kiro7shiro",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kiro7shiro/image-generator/issues"
+  },
+  "homepage": "https://github.com/kiro7shiro/image-generator#readme",
+  "dependencies": {
+    "brain.js": "^2.0.0-beta.15",
+    "gpu.js": "^2.15.2",
+    "sharp": "^0.30.4"
+  }
+}
