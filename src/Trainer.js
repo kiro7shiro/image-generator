@@ -215,9 +215,9 @@ class Trainer {
             const pivot = this.population.length * elitism > 2 ? this.population.length * elitism : 2
             const elite = this.population.slice(0, pivot)
             error = elite[0].error
-            //console.log({ error, elite })
             const breed = Trainer.breed(elite)
-            console.log(breed)
+            console.table(elite, ['genome'])
+            console.table(breed)
             maxGenerations--
         }
         /* for (let gCnt = 0; gCnt < maxGenerations; gCnt++) {
