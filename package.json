@@ -2,7 +2,9 @@
   "name": "image-generator",
   "version": "1.0.0",
   "description": "ai image generator",
-  "main": "index.js",
+  "bin": {
+    "coindog": "bin/coindog.js"
+  },
   "scripts": {
     "test": "mocha"
   },
@@ -18,7 +20,10 @@
   "homepage": "https://github.com/kiro7shiro/image-generator#readme",
   "dependencies": {
     "brain.js": "^2.0.0-beta.15",
+    "commander": "^9.2.0",
+    "easy-table": "^1.2.0",
     "gpu.js": "^2.15.2",
-    "sharp": "^0.30.4"
+    "sharp": "^0.30.4",
+    "terminal-kit": "^2.4.0"
   }
 }

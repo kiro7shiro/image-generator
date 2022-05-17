@@ -11,7 +11,7 @@ class Numbers {
         let result = 0
         if (inclusive) {
             result = Math.random() * (max - min + 1) + min
-        }else{
+        } else {
             result = Math.random() * (max - min) + min
         }
         if (decimals) return Numbers.round(result, { decimals })
@@ -25,6 +25,18 @@ class Numbers {
 
     static round = function (number, { decimals = 0 } = {}) {
         return Number(number.toFixed(decimals))
+    }
+
+    /**
+    * Wrap a number inside a range.
+    * @param {Number} number to limit into the range
+    * @param {Number} lbound of the range
+    * @param {Number} ubound of the range
+    * @returns {Number}
+    */
+    static wrapNumber = function (number, lbound, ubound) {
+        const range = ubound - lbound
+        return (number % range + range) % range
     }
 }
 

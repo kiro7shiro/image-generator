@@ -9,12 +9,16 @@ const { Numbers } = require('./Numbers.js')
 class Trainer {
 
     static activations = ['sigmoid', 'relu', 'leaky-relu', 'tanh']
+
+    static matingStrategies = ['random', 'crossover']
+
     static brainDefaults = {
         leakyReluAlpha: 0.01,   // supported for activation type 'leaky-relu'
         binaryThresh: 0.5,
         hiddenLayers: null,     // array of ints for the sizes of the hidden layers in the network
         activation: 'sigmoid'   // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
     }
+
     static trainDefaults = {
         iterations: 20000,      // the maximum times to iterate the training data
         errorThresh: 0.005,     // the acceptable error percentage from training data
@@ -42,71 +46,25 @@ class Trainer {
         const pool = Array.from({ length: parentsA.length }, (item, index) => item = index)
         Arrays.shuffle(pool)
         const offsprings = []
-        for (let pCnt = 0; pCnt < parentsA.length; pCnt++) {
-            const { genome: genomeA } = parentsA[pCnt]
-            const { genome: genomeB } = parentsB[pool[pCnt]]
-            const offspringA = {}
-            const offspringB = {}
-            let coin = Numbers.randInt({ inclusive: true })
-            for (const key in genomeA) {
-                if (key === 'hiddenLayers') {
-                    const hPoolA = Array.from({ length: genomeA.hiddenLayers.length }, (item, index) => item = genomeA.hiddenLayers[index])
-                    const hPoolB = Array.from({ length: genomeB.hiddenLayers.length }, (item, index) => item = genomeB.hiddenLayers[index])
-                    Arrays.shuffle(hPoolA)
-                    Arrays.shuffle(hPoolB)
-                    const layersA = Array.from({
-                        length: coin ? genomeA.hiddenLayers.length : genomeB.hiddenLayers.length
-                    }, (item, index) => {
-                        let selectA = index
-                        if (coin) {
-                            if (index > hPoolA.length - 1) selectA = Numbers.randInt({ max: hPoolA.length })
-                            item = hPoolA[selectA]
-                        } else {
-                            if (index > hPoolB.length - 1) selectA = Numbers.randInt({ max: hPoolB.length })
-                            item = hPoolB[selectA]
-                        }
-                        coin = Numbers.randInt({ inclusive: true })
-                        return item
-                    })
-                    const layersB = Array.from({
-                        length: coin ? genomeB.hiddenLayers.length : genomeA.hiddenLayers.length
-                    }, (item, index) => {
-                        let selectB = index
-                        if (coin) {
-                            if (index > hPoolB.length - 1) selectB = Numbers.randInt({ max: hPoolB.length })
-                            item = hPoolB[selectB]
-                        } else {
-                            if (index > hPoolA.length - 1) selectB = Numbers.randInt({ max: hPoolA.length })
-                            item = hPoolA[selectB]
-                        }
-                        coin = Numbers.randInt({ inclusive: true })
-                        return item
-                    })
-                    offspringA[key] = layersA
-                    offspringB[key] = layersB
-                    continue
-                }
-                offspringA[key] = coin ? genomeA[key] : genomeB[key]
-                offspringB[key] = coin ? genomeB[key] : genomeA[key]
-                coin = Numbers.randInt({ inclusive: true })
+        let pCnt = 0
+        while (populationSize) {
+            let select = Numbers.wrapNumber(pCnt, 0, parentsA.length)
+            const parentA = parentsA[select]
+            const parentB = parentsB[pool[select]]
+            const [genomeA, genomeB] = Trainer.mate(parentA, parentB)
+            const offspringA = {
+                genome: genomeA,
+                generator: new brain.NeuralNetwork(genomeA)
+            }
+            const offspringB = {
+                genome: genomeB,
+                generator: new brain.NeuralNetwork(genomeB)
             }
             offsprings.push(offspringA, offspringB)
+            pCnt++
+            populationSize -= 2
         }
         return offsprings
-    }
-
-    static imageFromData = async function (data, location) {
-        for (let dCnt = 0; dCnt < data.length; dCnt++) {
-            data[dCnt] = Numbers.decode(data[dCnt], { max: 255 })
-        }
-        const raw = new Uint8ClampedArray(data)
-        await sharp(raw, {
-            raw: {
-                width: 8,
-                height: 8,
-                channels: 3
-            }
-        }).toFile(location)
     }
 
     static makeRandomGenome = function ({ maxLayers = 128, maxNeurons = 128 } = {}) {
@@ -126,6 +84,66 @@ class Trainer {
         }
     }
 
+    static mate = function (mateA, mateB, { strategy = 'random' } = {}) {
+        const { genome: genomeA } = mateA
+        const { genome: genomeB } = mateB
+        const offspringA = {}
+        const offspringB = {}
+        let coin = Numbers.randInt({ inclusive: true })
+        const keys = Object.keys(genomeA)
+        for (let kCnt = 0; kCnt < keys.length; kCnt++) {
+            const key = keys[kCnt]
+            if (key === 'hiddenLayers') {
+                const hPoolA = [...genomeA.hiddenLayers]
+                const hPoolB = [...genomeB.hiddenLayers]
+                Arrays.shuffle(hPoolA)
+                Arrays.shuffle(hPoolB)
+                function selectAB(index) {
+                    let item
+                    let select = index
+                    coin = Numbers.randInt({ inclusive: true })
+                    if (coin === 0) {
+                        if (index > hPoolA.length - 1)
+                            select = Numbers.randInt({ max: hPoolA.length })
+                        item = hPoolA[select]
+                    } else {
+                        if (index > hPoolB.length - 1)
+                            select = Numbers.randInt({ max: hPoolB.length })
+                        item = hPoolB[select]
+                    }
+                    return item
+                }
+                const layersA = []
+                const layersB = []
+                const lenA = coin ? hPoolA.length : hPoolB.length
+                const lenB = coin ? hPoolB.length : hPoolA.length
+                for (let aCnt = 0; aCnt < lenA; aCnt++) {
+                    layersA.push(selectAB(aCnt))
+                }
+                for (let bCnt = 0; bCnt < lenB; bCnt++) {
+                    layersB.push(selectAB(bCnt))
+                }
+                offspringA.hiddenLayers = layersA
+                offspringB.hiddenLayers = layersB
+            } else {
+                offspringA[key] = coin ? genomeA[key] : genomeB[key]
+                offspringB[key] = coin ? genomeB[key] : genomeA[key]
+            }
+            coin = Numbers.randInt({ inclusive: true })
+        }
+        return [offspringA, offspringB]
+    }
+
+    static mutate = function (genome, { rate = 1 / 50 } = {}) {
+        const mutation = JSON.parse(JSON.stringify(genome))
+        const leakyReluAlpha = genome.leakyReluAlpha * rate
+        const binaryThresh = genome.binaryThresh * rate
+        let coin = Numbers.randInt({ inclusive: true })
+        mutation.leakyReluAlpha = coin ? genome.leakyReluAlpha + leakyReluAlpha : genome.leakyReluAlpha - leakyReluAlpha
+        mutation.binaryThresh = coin ? genome.binaryThresh + binaryThresh : genome.binaryThresh - binaryThresh
+        return mutation
+    }
+
     static spawn = function (size, { maxLayers = 128, maxNeurons = 128 } = {}) {
         const result = []
         while (size) {
@@ -140,31 +158,6 @@ class Trainer {
         return result
     }
 
-    /**
-     * Read in images from a directory and prepare image data
-     * @param {String} location 
-     * @returns {Array} set of training data ready for use
-     */
-    static trainingDataFromImages = async function (location) {
-        const dir = fs.readdirSync(location)
-        const result = []
-        for (let fCnt = 0; fCnt < dir.length; fCnt++) {
-            const image = path.resolve(location, dir[fCnt])
-            const { data, info } = await sharp(image).raw().toBuffer({ resolveWithObject: true })
-            const output = new Uint8ClampedArray(data.buffer)
-            for (let oCnt = 0; oCnt < output.length; oCnt++) {
-                output[oCnt] = Numbers.encode(output[oCnt], { max: 255 })
-            }
-            result.push(
-                {
-                    input: [Numbers.encode(fCnt, { max: dir.length - 1 })],
-                    output
-                }
-            )
-        }
-        return result
-    }
-
     constructor() {
         this.population = []
     }
@@ -173,11 +166,13 @@ class Trainer {
      * 
      * @param {[Object]} data training data
      * @param {Object} [options]
-     * @param {Number} [options.maxGenerations] maximum generations to evolve
-     * @param {Number} [options.populationSize] size of population
-     * @param {Number} [options.elitism] 
+     * @param {Function} [options.callback]
+     * @param {Number} [options.callbackPeriod]
+     * @param {Number} [options.elitism]
+     * @param {Number} [options.maxGenerations] maximum generations to evolve      
      * @param {Number} [options.maxLayers] maximum layers of one brain
      * @param {Number} [options.maxNeurons] maximum neurons per layer of one brain
+     * @param {Number} [options.populationSize] size of population
      * @param {Object} [options.training] training options
      * @param {Number} [options.training.iterations] the maximum times to iterate the training data
      * @param {Number} [options.training.errorThresh] the acceptable error percentage from training data
@@ -187,17 +182,19 @@ class Trainer {
      */
     evolve(data,
         {
-            maxGenerations = 1024,
-            populationSize = 100,
+            callback = null,
+            callbackPeriod = 10,
             elitism = 1 / 10,
+            maxGenerations = 1024,
             maxLayers = 128,
             maxNeurons = 128,
+            populationSize = 100,
             training = {}
         } = {}) {
         const options = Object.assign({}, Trainer.trainDefaults, training)
         this.population = Trainer.spawn(populationSize, { maxLayers, maxNeurons })
-
         let error = 1
+        let callbackCnt = callbackPeriod
         while (maxGenerations && error > options.errorThresh) {
             for (let pCnt = 0; pCnt < this.population.length; pCnt++) {
                 const member = this.population[pCnt]
@@ -214,15 +211,16 @@ class Trainer {
             })
             const pivot = this.population.length * elitism > 2 ? this.population.length * elitism : 2
             const elite = this.population.slice(0, pivot)
+            const breed = Trainer.breed(elite, { populationSize })
             error = elite[0].error
-            const breed = Trainer.breed(elite)
-            console.table(elite, ['genome'])
-            console.table(breed)
+            this.population = breed
+            if (callback && callbackCnt === callbackPeriod) {
+                callback({ maxGenerations, error, genome: JSON.stringify(elite[0].genome) })
+                callbackCnt--
+                callbackCnt = callbackCnt ? callbackCnt : callbackPeriod
+            }
             maxGenerations--
         }
-        /* for (let gCnt = 0; gCnt < maxGenerations; gCnt++) {
-        } */
-
     }
 
 }
