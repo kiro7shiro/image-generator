@@ -35,23 +35,25 @@ class Trainer {
         epsilon: 1e-8
     }
 
-    static breed = function (elite, { populationSize = 1024 } = {}) {
+    static breed = function (elite, { populationSize = 1024, mutation = { rate: 1 / 10, maxLayers: 128, maxNeurons: 128 } } = {}) {
         const parentsA = elite.slice(0, elite.length / 2)
         const parentsB = elite.slice(elite.length / 2)
-        // TODO : do something with the loner
-        let loner = undefined
         if (parentsB.length > parentsA.length) {
-            loner = parentsB.pop()
+            // TODO : do something with the loner
+            let loner = parentsB.pop()
         }
         const pool = Array.from({ length: parentsA.length }, (item, index) => item = index)
         Arrays.shuffle(pool)
-        const offsprings = []
-        let pCnt = 0
+        const offsprings = [parentsA[0], parentsB[0]]
+        populationSize -= 2
+        let pCnt = 2
         while (populationSize) {
             let select = Numbers.wrapNumber(pCnt, 0, parentsA.length)
             const parentA = parentsA[select]
             const parentB = parentsB[pool[select]]
-            const [genomeA, genomeB] = Trainer.mate(parentA, parentB)
+            let [genomeA, genomeB] = Trainer.mate(parentA, parentB)
+            genomeA = Trainer.mutate(genomeA, mutation)
+            genomeB = Trainer.mutate(genomeB, mutation)
             const offspringA = {
                 genome: genomeA,
                 generator: new brain.NeuralNetwork(genomeA)
@@ -134,7 +136,7 @@ class Trainer {
         return [offspringA, offspringB]
     }
 
-    static mutate = function (genome, { rate = 1 / 10, maxNeurons = 16 } = {}) {
+    static mutate = function (genome, { rate = 1 / 10, maxLayers = 128, maxNeurons = 128 } = {}) {
         const mutation = JSON.parse(JSON.stringify(genome))
         let probability = Numbers.probability(rate)
         mutation.leakyReluAlpha = probability ? genome.leakyReluAlpha * (1 + rate) : genome.leakyReluAlpha * (1 - rate)
@@ -143,8 +145,11 @@ class Trainer {
         probability = Numbers.probability(rate)
         if (!mutation.hiddenLayers && probability) mutation.hiddenLayers = []
         if (mutation.hiddenLayers) {
-            if (mutation.hiddenLayers.length < 1) {
-                mutation.hiddenLayers.push(Numbers.randInt({ min: 1, max: maxNeurons }))
+            if (mutation.hiddenLayers.length < 1 && probability) {
+                const layers = Numbers.randInt({ max: maxLayers })
+                for (let lcnt = 0; lcnt < layers; lcnt++) {
+                    mutation.hiddenLayers.push(Numbers.randInt({ min: 1, max: maxNeurons }))
+                }
             } else {
                 for (let hCnt = 0; hCnt < mutation.hiddenLayers.length; hCnt++) {
                     const neurons = mutation.hiddenLayers[hCnt]
@@ -237,6 +242,8 @@ class Trainer {
             const breed = Trainer.breed(elite, { populationSize })
             error = elite[0].error
             this.population = breed
+            const bnomes = breed.reduce((accu, curr) => { accu.push(curr.genome); return accu }, [])
+            console.table(bnomes.slice(0, 3))
             if (callback && callbackCnt === callbackPeriod) {
                 callback({ maxGenerations, error, genome: JSON.stringify(elite[0].genome) })
                 callbackCnt--
