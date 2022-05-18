@@ -7,6 +7,10 @@ class Numbers {
         return (value - min) / (max - min)
     }
 
+    static probability = function (n) {
+        return !!n && Math.random() <= n;
+    }
+
     static randFloat = function ({ min = 0, max = 1, decimals = false, inclusive = false } = {}) {
         let result = 0
         if (inclusive) {

@@ -134,13 +134,36 @@ class Trainer {
         return [offspringA, offspringB]
     }
 
-    static mutate = function (genome, { rate = 1 / 50 } = {}) {
+    static mutate = function (genome, { rate = 1 / 10, maxNeurons = 16 } = {}) {
         const mutation = JSON.parse(JSON.stringify(genome))
-        const leakyReluAlpha = genome.leakyReluAlpha * rate
-        const binaryThresh = genome.binaryThresh * rate
-        let coin = Numbers.randInt({ inclusive: true })
-        mutation.leakyReluAlpha = coin ? genome.leakyReluAlpha + leakyReluAlpha : genome.leakyReluAlpha - leakyReluAlpha
-        mutation.binaryThresh = coin ? genome.binaryThresh + binaryThresh : genome.binaryThresh - binaryThresh
+        let probability = Numbers.probability(rate)
+        mutation.leakyReluAlpha = probability ? genome.leakyReluAlpha * (1 + rate) : genome.leakyReluAlpha * (1 - rate)
+        mutation.binaryThresh = probability ? genome.binaryThresh * (1 + rate) : genome.binaryThresh * (1 - rate)
+        // hiddenLayers
+        probability = Numbers.probability(rate)
+        if (!mutation.hiddenLayers && probability) mutation.hiddenLayers = []
+        if (mutation.hiddenLayers) {
+            if (mutation.hiddenLayers.length < 1) {
+                mutation.hiddenLayers.push(Numbers.randInt({ min: 1, max: maxNeurons }))
+            } else {
+                for (let hCnt = 0; hCnt < mutation.hiddenLayers.length; hCnt++) {
+                    const neurons = mutation.hiddenLayers[hCnt]
+                    probability = Numbers.probability(rate)
+                    mutation.hiddenLayers[hCnt] = probability ? Math.ceil(neurons * (1 + rate)) : Math.floor(neurons * (1 - rate)) ? Math.floor(neurons * (1 - rate)) : 1
+                }
+            }
+        }
+        // activation
+        const part = rate / (Trainer.activations.length - 1)
+        const activations = [genome.activation, ...Trainer.activations.filter(actv => actv !== genome.activation)]
+        const weights = [Trainer.activations.length - rate]
+        for (let wCnt = 1; wCnt < Trainer.activations.length; wCnt++) {
+            weights.push(part)
+        }
+        const dist = Arrays.createDistribution(activations, weights, 10)
+        const rndIdx = dist[Numbers.randInt({ max: dist.length })]
+        mutation.activation = activations[rndIdx]
+        //** */
         return mutation
     }
 
