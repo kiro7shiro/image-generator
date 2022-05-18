@@ -16,8 +16,8 @@ class Data extends Array {
     static types = { CLASSIFICATION: 'classification' }
 
     /**
-     * Read in images from a directory and prepare image data
-     * @param {String} location 
+     * Read in images from a directory and prepare image data for classification learning.
+     * @param {String} location where the data is stored
      * @returns {Array} set of training data ready for use
      */
     static fromImages = async function (location) {
@@ -44,35 +44,41 @@ class Data extends Array {
 
     /**
      * Make data from a source object.
-     * @param {[Number]|String} source array or an array of arrays filled with numbers or a string pointing to the location of the data
+     * @param {[Number]|String} source
      * @returns {Data} parsed data
      */
-    static make = async function (source) {
+    static parse = async function (source) {
         let result = []
         let location
         switch (typeof source) {
             case 'object':
+                // TODO : parse arrays and objects
                 if (Array.isArray(source)) {
-                    // TODO 
                 }
                 break
 
             case 'string':
-                // TODO : check type of files, for now only images are supported
-                location = path.resolve(source)
-                result = await Data.fromImages(location)
+                if (source === '.') source = process.cwd()
+                location = path.parse(path.resolve(source))
+                const { ext } = location
+                // TODO : search location for pre compiled data files
+                if (ext === '.json') {
+                    result = JSON.parse(fs.readFileSync(path.format(location)))
+                } else {
+                    result = await Data.fromImages(path.format(location))
+                }
                 break
         }
-        return new Data({ source: result, location }, true)
+        return new Data({ source: result, location: path.format(location) }, true)
     }
 
     /**
-     * Cannot be called directly use Data.make() instead.
+     * Cannot be called directly use Data.parse() instead.
      */
     constructor({ source, location } = {}) {
         const args = [...arguments]
         const [asyncCall] = args.slice(-1)
-        if (asyncCall !== true) throw new InitializationError('Cannot be called directly use Data.make() instead.')
+        if (asyncCall !== true) throw new InitializationError('Cannot be called directly use Data.parse() instead.')
         super()
         this.push(...source)
         this.location = location
@@ -91,6 +97,14 @@ class Data extends Array {
             this[dCnt] = image
         }
         return this
+    }
+
+    deserialize(input) {
+        // TODO : deserialize
+    }
+
+    serialize({ replacer = null, space = 0 } = {}) {
+        return JSON.stringify(this, replacer, space)
     }
 
 }

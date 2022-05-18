@@ -11,22 +11,26 @@ describe('Trainer', function () {
         assert.ok(mutation.leakyReluAlpha >= genome.leakyReluAlpha || mutation.leakyReluAlpha <= genome.leakyReluAlpha)
     })
 
+    this.timeout(100000)
     it('evolve', async function () {
-        const data = await Data.make('./training/simple')
+        const data = await Data.parse('./training/simple')
         const trainer = new Trainer()
         const callback = info => console.log(info)
-        trainer.evolve(data, {
+        const best = trainer.evolve(data, {
             callback,
             callbackPeriod: 1,
-            maxGenerations: 8,
-            populationSize: 100,
+            maxGenerations: 16,
+            populationSize: 128,
             elitism: 1 / 10,
             maxLayers: 4,
             maxNeurons: 16,
             training: {
-                iterations: 25
+                errorThresh: 0.00005,
+                iterations: 50
             }
         })
+        console.log(best.genome)
     })
+    this.timeout(2000)
 
 })

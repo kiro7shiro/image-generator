@@ -4,6 +4,7 @@ const brain = require('brain.js')
 const sharp = require('sharp')
 
 const { Arrays } = require('./Arrays.js')
+const { Data } = require('./Data.js')
 const { Numbers } = require('./Numbers.js')
 
 class Trainer {
@@ -197,7 +198,7 @@ class Trainer {
      * @param {Function} [options.callback]
      * @param {Number} [options.callbackPeriod]
      * @param {Number} [options.elitism]
-     * @param {Number} [options.maxGenerations] maximum generations to evolve      
+     * @param {Number} [options.maxGenerations] maximum generations to evolve
      * @param {Number} [options.maxLayers] maximum layers of one brain
      * @param {Number} [options.maxNeurons] maximum neurons per layer of one brain
      * @param {Number} [options.populationSize] size of population
@@ -216,7 +217,7 @@ class Trainer {
             maxGenerations = 1024,
             maxLayers = 128,
             maxNeurons = 128,
-            populationSize = 100,
+            populationSize = 128,
             training = {}
         } = {}) {
         const options = Object.assign({}, Trainer.trainDefaults, training)
@@ -242,17 +243,21 @@ class Trainer {
             const breed = Trainer.breed(elite, { populationSize })
             error = elite[0].error
             this.population = breed
-            const bnomes = breed.reduce((accu, curr) => { accu.push(curr.genome); return accu }, [])
-            console.table(bnomes.slice(0, 3))
+            /* const bnomes = breed.reduce((accu, curr) => { accu.push(curr.genome); return accu }, [])
+            console.table(bnomes.slice(0, 3)) */
             if (callback && callbackCnt === callbackPeriod) {
-                callback({ maxGenerations, error, genome: JSON.stringify(elite[0].genome) })
+                callback({ maxGenerations, error })
                 callbackCnt--
                 callbackCnt = callbackCnt ? callbackCnt : callbackPeriod
             }
             maxGenerations--
         }
+        return this.population[0]
     }
 
 }
 
-module.exports = { Trainer }
+module.exports = { 
+    Data,
+    Trainer,
+}

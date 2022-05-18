@@ -11,9 +11,17 @@ describe('Data', function () {
         }
     })
 
-    it('should only be builded with make function', async function () {
-        const test = await Data.make('./training/simple')
+    it('should only be builded with parse()', async function () {
+        const test = await Data.parse('./training/simple')
         assert.equal(test.length, 4)
+    })
+
+    it('should serialize', async function () {
+        const test = await Data.parse('./training/simple')
+        const json = test.serialize()
+        const obj = JSON.parse(json)
+        //console.log(obj)
+        assert.equal(obj.length, 4)
     })
 
 })

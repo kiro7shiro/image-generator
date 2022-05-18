@@ -27,6 +27,10 @@ class Numbers {
         return Math.floor(Math.random() * (max - min)) + min
     }
 
+    static parseInt = function(value, { radix = 10 }) {
+        return
+    }
+
     static round = function (number, { decimals = 0 } = {}) {
         return Number(number.toFixed(decimals))
     }

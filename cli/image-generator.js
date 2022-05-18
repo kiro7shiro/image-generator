@@ -4,7 +4,9 @@ const program = new Command
 
 program
     .description('ai image generator')
+    .command('evolve', 'evolve brains on a data set')
     .command('train', 'train on a list of images')
+    .command('parse', 'parse data into a training set')
 
 module.exports = {
     cli: async function (args) {

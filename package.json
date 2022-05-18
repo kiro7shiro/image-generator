@@ -2,9 +2,6 @@
   "name": "image-generator",
   "version": "1.0.0",
   "description": "ai image generator",
-  "bin": {
-    "coindog": "bin/coindog.js"
-  },
   "scripts": {
     "test": "mocha"
   },
