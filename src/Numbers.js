@@ -6,9 +6,13 @@ class Numbers {
     static encode = function (value, { min = 0, max = 1 } = {}) {
         return (value - min) / (max - min)
     }
+    
+    static lerp = function (valueA, valueB, div) {
+        return (1 - div) * valueA + div * valueB
+      }
 
     static probability = function (n) {
-        return !!n && Math.random() <= n;
+        return !!n && Math.random() <= n
     }
 
     static randFloat = function ({ min = 0, max = 1, decimals = false, inclusive = false } = {}) {
