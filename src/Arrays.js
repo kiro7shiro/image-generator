@@ -11,6 +11,28 @@ class Arrays {
         }
         return distribution
     }
+
+    /**
+     * Crossover the values of two arrays in place.
+     * @param {Array} arrayA 
+     * @param {Array} arrayB 
+     * @param {Number|Array} pivots pivot point(s) where to crossover
+     * @returns {Array} [arrayA, arrayB]
+     */
+    static crossover = function (arrayA, arrayB, pivots) {
+        const length = arrayA.length < arrayB.length ? arrayA.length : arrayB.length
+        if (typeof pivots === 'number') pivots = [pivots]
+        let pivot = pivots.shift()
+        if (pivot < 0 || pivot > length) {
+            return [arrayA, arrayB]
+        }
+        for (let cCnt = pivot; cCnt < length; cCnt++) {
+            [arrayA[cCnt], arrayB[cCnt]] = [arrayB[cCnt], arrayA[cCnt]]
+        }
+        if (pivots.length) [arrayA, arrayB] = Arrays.crossover(arrayA, arrayB, pivots)
+        return [arrayA, arrayB]
+    }
+
     /**
      * Shuffles array in place.
      * @param {Array} array items An array containing the items.
