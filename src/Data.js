@@ -21,7 +21,12 @@ class Data extends Array {
      * @returns {Array} set of training data ready for use
      */
     static fromImages = async function (location) {
-        const dir = fs.readdirSync(location)
+        const supported = ['.jpg', '.png', '.webp', '.gif', '.avif', '.tif', '.svg']
+        const dir = fs.readdirSync(location).filter(f => {
+            const file = path.parse(f)
+            const found = supported.find(e => e === file.ext) ? true : false
+            return found
+        })
         const result = []
         for (let fCnt = 0; fCnt < dir.length; fCnt++) {
             const file = path.resolve(location, dir[fCnt])
@@ -100,7 +105,7 @@ class Data extends Array {
     }
 
     deserialize(input) {
-        // TODO : deserialize
+        return JSON.parse(input)
     }
 
     serialize({ replacer = null, space = 0 } = {}) {
