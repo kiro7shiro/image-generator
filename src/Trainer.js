@@ -27,7 +27,7 @@ class Trainer {
         logPeriod: 10,          // iterations between logging out
         learningRate: 0.3,      // multiply's against the input and the delta then adds to momentum
         momentum: 0.1,          // multiply's against the specified "change" then adds to learning rate for change
-        callback: null,         // a periodic call back that can be triggered while training
+        callback: undefined,    // a periodic call back that can be triggered while training
         callbackPeriod: 10,     // the number of iterations through the training data between callback calls
         timeout: Infinity,      // the max number of milliseconds to train for
         praxis: null,
@@ -52,9 +52,10 @@ class Trainer {
             let select = Numbers.wrapNumber(pCnt, 0, parentsA.length)
             const parentA = parentsA[select]
             const parentB = parentsB[pool[select]]
+            // TODO : update call 
             let [genomeA, genomeB] = Trainer.mate(parentA, parentB)
-            genomeA = Trainer.mutate(genomeA, mutation)
-            genomeB = Trainer.mutate(genomeB, mutation)
+            /* genomeA = Trainer.mutate(genomeA, mutation)
+            genomeB = Trainer.mutate(genomeB, mutation) */
             const offspringA = {
                 genome: genomeA,
                 generator: new brain.NeuralNetwork(genomeA)
@@ -87,7 +88,7 @@ class Trainer {
         }
     }
 
-    static mate = function (mateA, mateB, { strategy = 'random' } = {}) {
+    static mateOld = function (mateA, mateB, { strategy = 'random' } = {}) {
         const { genome: genomeA } = mateA
         const { genome: genomeB } = mateB
         const offspringA = {}
@@ -137,40 +138,62 @@ class Trainer {
         return [offspringA, offspringB]
     }
 
-    static mutate = function (genome, { rate = 1 / 10, maxLayers = 128, maxNeurons = 128 } = {}) {
-        const mutation = JSON.parse(JSON.stringify(genome))
-        let probability = Numbers.probability(rate)
-        mutation.leakyReluAlpha = probability ? genome.leakyReluAlpha * (1 + rate) : genome.leakyReluAlpha * (1 - rate)
-        mutation.binaryThresh = probability ? genome.binaryThresh * (1 + rate) : genome.binaryThresh * (1 - rate)
-        // hiddenLayers
-        probability = Numbers.probability(rate)
-        if (!mutation.hiddenLayers && probability) mutation.hiddenLayers = []
-        if (mutation.hiddenLayers) {
-            if (mutation.hiddenLayers.length < 1 && probability) {
-                const layers = Numbers.randInt({ max: maxLayers })
-                for (let lcnt = 0; lcnt < layers; lcnt++) {
-                    mutation.hiddenLayers.push(Numbers.randInt({ min: 1, max: maxNeurons }))
+    static mate = function (genomeA, genomeB) {
+        /* const genomeA = JSON.parse(JSON.stringify(genomeA.toJSON()))
+        const genomeB = JSON.parse(JSON.stringify(genomeB.toJSON())) */
+        const layerCount = genomeA.layers.length > genomeB.layers.length ? genomeB.layers.length : genomeA.layers.length
+        for (let lCnt = 1; lCnt < layerCount - 1; lCnt++) {
+            const layerA = genomeA.layers[lCnt]
+            const layerB = genomeB.layers[lCnt]
+            const weightsLength = layerA.weights.length > layerB.weights.length ? layerB.weights.length : layerA.weights.length
+            const biasesLength = layerA.biases.length > layerB.biases.length ? layerB.biases.length : layerA.biases.length
+            const wPivot = Math.floor(weightsLength / 2)
+            const bPivot = Math.floor(biasesLength / 2)
+            Arrays.crossover(layerA.weights, layerB.weights, wPivot)
+            Arrays.crossover(layerA.biases, layerB.biases, bPivot)
+        }
+        //console.log({ jsonA, jsonB })
+        return [genomeA, genomeB]
+    }
+
+    static mutate = function (genome, { rate = 1 / 10 } = {}) {
+        for (let lCnt = 1; lCnt < genome.layers.length - 1; lCnt++) {
+            // mutate weights and biases
+            // build a lookup table of the values which will be mutated based on the probability rate
+            // so we only have to iterate over the values that are actually changing
+            const layer = genome.layers[lCnt]
+            const nLookup = [...new Array(layer.weights.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
+            const bLookup = [...new Array(layer.biases.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
+            for (let nCnt = 0; nCnt < nLookup.length; nCnt++) {
+                const nIdx = nLookup[nCnt]
+                const weights = layer.weights[nIdx]
+                const wLookup = [...new Array(weights.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
+                for (let wCnt = 0; wCnt < wLookup.length; wCnt++) {
+                    const wIdx = wLookup[wCnt]
+                    const newWeight = Numbers.probability(rate) ? weights[wIdx] * (1 + rate) : weights[wIdx] * (1 - rate)
+                    weights[wIdx] = newWeight
                 }
-            } else {
-                for (let hCnt = 0; hCnt < mutation.hiddenLayers.length; hCnt++) {
-                    const neurons = mutation.hiddenLayers[hCnt]
-                    probability = Numbers.probability(rate)
-                    mutation.hiddenLayers[hCnt] = probability ? Math.ceil(neurons * (1 + rate)) : Math.floor(neurons * (1 - rate)) ? Math.floor(neurons * (1 - rate)) : 1
-                }
+            }
+            for (let bCnt = 0; bCnt < bLookup.length; bCnt++) {
+                const bIdx = bLookup[bCnt]
+                const newBias = Numbers.probability(rate) ? (layer.biases[bIdx] * (1 + rate)) : (layer.biases[bIdx] * (1 - rate))
+                layer.biases[bIdx] = newBias
             }
         }
         // activation
         const part = rate / (Trainer.activations.length - 1)
-        const activations = [genome.activation, ...Trainer.activations.filter(actv => actv !== genome.activation)]
+        const activations = [genome.options.activation, ...Trainer.activations.filter(actv => actv !== genome.options.activation)]
         const weights = [Trainer.activations.length - rate]
         for (let wCnt = 1; wCnt < Trainer.activations.length; wCnt++) {
             weights.push(part)
         }
         const dist = Arrays.createDistribution(activations, weights, 10)
-        const rndIdx = dist[Numbers.randInt({ max: dist.length })]
-        mutation.activation = activations[rndIdx]
-        //** */
-        return mutation
+        genome.options.activation = dist[Numbers.randInt({ max: dist.length })]
+        // binaryThresh
+        genome.options.binaryThresh = Numbers.probability(rate) ? genome.options.binaryThresh * (1 + rate) : genome.options.binaryThresh * (1 - rate)
+        // leakyReluAlpha
+        genome.options.leakyReluAlpha = Numbers.probability(rate) ? genome.options.leakyReluAlpha * (1 + rate) : genome.options.leakyReluAlpha * (1 - rate)
+        return genome
     }
 
     static spawn = function (size, { maxLayers = 128, maxNeurons = 128 } = {}) {
@@ -178,10 +201,7 @@ class Trainer {
         while (size) {
             const genome = Trainer.makeRandomGenome({ maxLayers, maxNeurons })
             const generator = new brain.NeuralNetwork(genome)
-            result.push({
-                genome,
-                generator
-            })
+            result.push(generator)
             size--
         }
         return result
@@ -257,7 +277,7 @@ class Trainer {
 
 }
 
-module.exports = { 
+module.exports = {
     Data,
     Trainer,
 }
