@@ -1,12 +1,20 @@
 class Arrays {
-    static createDistribution = (array, weights, size) => {
+
+    /**
+     * Creates a new distribution of the items whose frequency is controlled by the weights passed.
+     * @param {Array} items to distribute
+     * @param {Array} weights factors to control the frequency
+     * @param {Number} size of the new distribution
+     * @returns 
+     */
+    static createDistribution = (items, weights, size) => {
         const distribution = []
         const sum = weights.reduce((a, b) => a + b)
         const quant = size / sum
-        for (let i = 0; i < array.length; ++i) {
+        for (let i = 0; i < items.length; ++i) {
             const limit = quant * weights[i]
             for (let j = 0; j < limit; ++j) {
-                distribution.push(i)
+                distribution.push(items[i])
             }
         }
         return distribution
@@ -39,8 +47,9 @@ class Arrays {
      */
     static shuffle = function (array) {
         let j, tmp, i
-        for (i = array.length - 1; i > 0; i--) {
+        for (i = array.length - 1; i >= 0; i--) {
             j = Math.floor(Math.random() * (i + 1))
+            //[array[i], array[j]] = [array[j], array[i]]
             tmp = array[i]
             array[i] = array[j]
             array[j] = tmp
