@@ -102,7 +102,7 @@ program
         /* console.log(`\n`)
         console.log({ options }) */
         best = trainer.evolve(data, options)
-        fs.writeFileSync(path.resolve('../debug/generator.json'), JSON.stringify(best.generator.toJSON(), null, 4))
+        fs.writeFileSync(path.resolve('../debug/generator2.json'), JSON.stringify(best.generator.toJSON(), null, 4))
         //console.log({ best: best.genome })
         //terminate()
 
