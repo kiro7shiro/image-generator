@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const brain = require('brain.js')
-const sharp = require('sharp')
 
 const { Arrays } = require('./Arrays.js')
 const { Data } = require('./Data.js')
@@ -17,7 +16,9 @@ class Trainer {
         leakyReluAlpha: 0.01,   // supported for activation type 'leaky-relu'
         binaryThresh: 0.5,
         hiddenLayers: null,     // array of ints for the sizes of the hidden layers in the network
-        activation: 'sigmoid'   // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
+        activation: 'sigmoid',  // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
+        maxLayers: 128,        // maximum layers of one brain
+        maxNeurons: 128,       // maximum neurons per layer of one brain
     }
 
     static trainDefaults = {
@@ -36,39 +37,40 @@ class Trainer {
         epsilon: 1e-8
     }
 
-    static breed = function (elite, { populationSize = 1024, mutation = { rate: 1 / 10, maxLayers: 128, maxNeurons: 128 } } = {}) {
-        const parentsA = elite.slice(0, elite.length / 2)
-        const parentsB = elite.slice(elite.length / 2)
-        if (parentsB.length > parentsA.length) {
-            // TODO : do something with the loner
-            let loner = parentsB.pop()
-        }
-        const pool = Array.from({ length: parentsA.length }, (item, index) => item = index)
-        Arrays.shuffle(pool)
-        const offsprings = [parentsA[0], parentsB[0]]
-        populationSize -= 2
-        let pCnt = 2
-        while (populationSize) {
-            let select = Numbers.wrapNumber(pCnt, 0, parentsA.length)
-            const parentA = parentsA[select]
-            const parentB = parentsB[pool[select]]
-            // TODO : update call 
-            let [genomeA, genomeB] = Trainer.mate(parentA, parentB)
-            /* genomeA = Trainer.mutate(genomeA, mutation)
-            genomeB = Trainer.mutate(genomeB, mutation) */
-            const offspringA = {
-                genome: genomeA,
-                generator: new brain.NeuralNetwork(genomeA)
-            }
-            const offspringB = {
-                genome: genomeB,
-                generator: new brain.NeuralNetwork(genomeB)
-            }
+    static evolutionDefaults = {
+        callback: undefined,
+        callbackPeriod: 10,
+        elitism: 1 / 10,
+        maxGenerations: 1024,
+        mutationRate: 1 / 10,
+        populationSize: 128,
+        restart: false,
+        training: Trainer.trainDefaults,
+        settings: Trainer.brainDefaults
+    }
+
+    static breed = function (elite, { populationSize = 1024, mutationRate = 1 / 10, mixRands = 1 / 2, settings = {} } = {}) {
+        settings = Object.assign({}, Trainer.brainDefaults, settings)
+        const offsprings = []
+        const rands = Math.ceil(populationSize - populationSize * mixRands)
+        for (let eCnt = 0; eCnt < populationSize - rands; eCnt++) {
+            const parentA = elite[Numbers.randInt({ max: elite.length })].toJSON()
+            const parentB = elite[Numbers.randInt({ max: elite.length })].toJSON()
+            const [genomeA, genomeB] = Trainer.mate(parentA, parentB)
+            Trainer.mutate(genomeA, mutationRate)
+            Trainer.mutate(genomeB, mutationRate)
+            const offspringA = new brain.NeuralNetwork(genomeA.options)
+            const offspringB = new brain.NeuralNetwork(genomeB.options)
+            offspringA.fromJSON(genomeA)
+            offspringB.fromJSON(genomeB)
             offsprings.push(offspringA, offspringB)
-            pCnt++
-            populationSize -= 2
         }
-        return offsprings
+        for (let rCnt = 0; rCnt < rands; rCnt++) {
+            const genomeR = Trainer.makeRandomGenome(settings)
+            const rand = new brain.NeuralNetwork(genomeR)
+            offsprings.push(rand)
+        }
+        return offsprings.slice(0, populationSize)
     }
 
     static makeRandomGenome = function ({ maxLayers = 128, maxNeurons = 128 } = {}) {
@@ -88,59 +90,7 @@ class Trainer {
         }
     }
 
-    static mateOld = function (mateA, mateB, { strategy = 'random' } = {}) {
-        const { genome: genomeA } = mateA
-        const { genome: genomeB } = mateB
-        const offspringA = {}
-        const offspringB = {}
-        let coin = Numbers.randInt({ inclusive: true })
-        const keys = Object.keys(genomeA)
-        for (let kCnt = 0; kCnt < keys.length; kCnt++) {
-            const key = keys[kCnt]
-            if (key === 'hiddenLayers') {
-                const hPoolA = [...genomeA.hiddenLayers]
-                const hPoolB = [...genomeB.hiddenLayers]
-                Arrays.shuffle(hPoolA)
-                Arrays.shuffle(hPoolB)
-                function selectAB(index) {
-                    let item
-                    let select = index
-                    coin = Numbers.randInt({ inclusive: true })
-                    if (coin === 0) {
-                        if (index > hPoolA.length - 1)
-                            select = Numbers.randInt({ max: hPoolA.length })
-                        item = hPoolA[select]
-                    } else {
-                        if (index > hPoolB.length - 1)
-                            select = Numbers.randInt({ max: hPoolB.length })
-                        item = hPoolB[select]
-                    }
-                    return item
-                }
-                const layersA = []
-                const layersB = []
-                const lenA = coin ? hPoolA.length : hPoolB.length
-                const lenB = coin ? hPoolB.length : hPoolA.length
-                for (let aCnt = 0; aCnt < lenA; aCnt++) {
-                    layersA.push(selectAB(aCnt))
-                }
-                for (let bCnt = 0; bCnt < lenB; bCnt++) {
-                    layersB.push(selectAB(bCnt))
-                }
-                offspringA.hiddenLayers = layersA
-                offspringB.hiddenLayers = layersB
-            } else {
-                offspringA[key] = coin ? genomeA[key] : genomeB[key]
-                offspringB[key] = coin ? genomeB[key] : genomeA[key]
-            }
-            coin = Numbers.randInt({ inclusive: true })
-        }
-        return [offspringA, offspringB]
-    }
-
     static mate = function (genomeA, genomeB) {
-        /* const genomeA = JSON.parse(JSON.stringify(genomeA.toJSON()))
-        const genomeB = JSON.parse(JSON.stringify(genomeB.toJSON())) */
         const layerCount = genomeA.layers.length > genomeB.layers.length ? genomeB.layers.length : genomeA.layers.length
         for (let lCnt = 1; lCnt < layerCount - 1; lCnt++) {
             const layerA = genomeA.layers[lCnt]
@@ -152,7 +102,6 @@ class Trainer {
             Arrays.crossover(layerA.weights, layerB.weights, wPivot)
             Arrays.crossover(layerA.biases, layerB.biases, bPivot)
         }
-        //console.log({ jsonA, jsonB })
         return [genomeA, genomeB]
     }
 
@@ -169,14 +118,18 @@ class Trainer {
                 const weights = layer.weights[nIdx]
                 const wLookup = [...new Array(weights.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
                 for (let wCnt = 0; wCnt < wLookup.length; wCnt++) {
+                    const coin = Numbers.randInt({ max: 1, inclusive: true })
                     const wIdx = wLookup[wCnt]
-                    const newWeight = Numbers.probability(rate) ? weights[wIdx] * (1 + rate) : weights[wIdx] * (1 - rate)
+                    //const newWeight = Numbers.probability(rate) ? weights[wIdx] * (1 + rate) : weights[wIdx] * (1 - rate)
+                    const newWeight = coin ? weights[wIdx] * (1 + rate) : weights[wIdx] * (1 - rate)
                     weights[wIdx] = newWeight
                 }
             }
             for (let bCnt = 0; bCnt < bLookup.length; bCnt++) {
+                const coin = Numbers.randInt({ max: 1, inclusive: true })
                 const bIdx = bLookup[bCnt]
-                const newBias = Numbers.probability(rate) ? (layer.biases[bIdx] * (1 + rate)) : (layer.biases[bIdx] * (1 - rate))
+                //const newBias = Numbers.probability(rate) ? (layer.biases[bIdx] * (1 + rate)) : (layer.biases[bIdx] * (1 - rate))
+                const newBias = coin ? (layer.biases[bIdx] * (1 + rate)) : (layer.biases[bIdx] * (1 - rate))
                 layer.biases[bIdx] = newBias
             }
         }
@@ -189,10 +142,17 @@ class Trainer {
         }
         const dist = Arrays.createDistribution(activations, weights, 10)
         genome.options.activation = dist[Numbers.randInt({ max: dist.length })]
+        genome.trainOpts.activation = genome.options.activation
         // binaryThresh
-        genome.options.binaryThresh = Numbers.probability(rate) ? genome.options.binaryThresh * (1 + rate) : genome.options.binaryThresh * (1 - rate)
+        let coin = Numbers.randInt({ max: 1, inclusive: true })
+        //genome.options.binaryThresh = Numbers.probability(rate) ? genome.options.binaryThresh * (1 + rate) : genome.options.binaryThresh * (1 - rate)
+        genome.options.binaryThresh = coin ? genome.options.binaryThresh * (1 + rate) : genome.options.binaryThresh * (1 - rate)
+        genome.trainOpts.binaryThresh = genome.options.binaryThresh
         // leakyReluAlpha
-        genome.options.leakyReluAlpha = Numbers.probability(rate) ? genome.options.leakyReluAlpha * (1 + rate) : genome.options.leakyReluAlpha * (1 - rate)
+        coin = Numbers.randInt({ max: 1, inclusive: true })
+        //genome.options.leakyReluAlpha = Numbers.probability(rate) ? genome.options.leakyReluAlpha * (1 + rate) : genome.options.leakyReluAlpha * (1 - rate)
+        genome.options.leakyReluAlpha = coin ? genome.options.leakyReluAlpha * (1 + rate) : genome.options.leakyReluAlpha * (1 - rate)
+        genome.trainOpts.leakyReluAlpha = genome.options.leakyReluAlpha
         return genome
     }
 
@@ -209,72 +169,91 @@ class Trainer {
 
     constructor() {
         this.population = []
+        this.best = undefined
     }
 
     /**
      * 
      * @param {[Object]} data training data
      * @param {Object} [options]
-     * @param {Function} [options.callback]
-     * @param {Number} [options.callbackPeriod]
-     * @param {Number} [options.elitism]
-     * @param {Number} [options.maxGenerations] maximum generations to evolve
-     * @param {Number} [options.maxLayers] maximum layers of one brain
-     * @param {Number} [options.maxNeurons] maximum neurons per layer of one brain
-     * @param {Number} [options.populationSize] size of population
+     * @param {Object} [options.evolution] evolution options
      * @param {Object} [options.training] training options
-     * @param {Number} [options.training.iterations] the maximum times to iterate the training data
-     * @param {Number} [options.training.errorThresh] the acceptable error percentage from training data
-     * @param {Number} [options.training.learningRate] multiply's against the input and the delta then adds to momentum
-     * @param {Number} [options.training.momentum] multiply's against the specified "change" then adds to learning rate for change
-     * @param {Number} [options.training.timeout] the max number of milliseconds to train for
+     * @param {Number} [options.brain] brain options
      */
-    evolve(data,
-        {
-            callback = null,
-            callbackPeriod = 10,
-            elitism = 1 / 10,
-            maxGenerations = 1024,
-            maxLayers = 128,
-            maxNeurons = 128,
-            populationSize = 128,
-            training = {}
-        } = {}) {
-        const options = Object.assign({}, Trainer.trainDefaults, training)
-        this.population = Trainer.spawn(populationSize, { maxLayers, maxNeurons })
+    async evolve(data, { evolution } = {}) {
+        const options = Object.assign({}, Trainer.evolutionDefaults, evolution)
+        const { elitism,
+            callback,
+            callbackPeriod,
+            populationSize,
+            maxGenerations,
+            mutationRate,
+            training,
+            settings
+        } = options
+        const { maxLayers, maxNeurons } = settings
+        if (populationSize < 1) {
+            this.population = Trainer.spawn(2, { maxLayers, maxNeurons })
+        } else {
+            this.population = Trainer.spawn(populationSize, { maxLayers, maxNeurons })
+        }
+        let iterations = maxGenerations
         let error = 1
         let callbackCnt = callbackPeriod
-        while (maxGenerations && error > options.errorThresh) {
+        while (iterations && error > training.errorThresh) {
             for (let pCnt = 0; pCnt < this.population.length; pCnt++) {
-                const member = this.population[pCnt]
-                const { generator } = member
+                const generator = this.population[pCnt]
                 const saveError = function (data) {
-                    member.error = data.error
+                    generator.error = data.error || 1
                 }
-                options.callback = saveError
-                options.callbackPeriod = 1
-                generator.train(data, options)
+                training.callback = saveError
+                training.callbackPeriod = 1
+                await generator.trainAsync(data, training)
             }
-            this.population.sort(function (a, b) {
-                return a.error - b.error
-            })
-            const pivot = this.population.length * elitism > 2 ? this.population.length * elitism : 2
+            //this.population = this.population.filter(g => !isNaN(g.error) && g.error < 1)
+            for (let pCnt = 0; pCnt < this.population.length; pCnt++) {
+                const generator = this.population[pCnt]
+                const { hiddenLayers } = generator.options
+                const lWeight = 1 / hiddenLayers.length
+                const layerFitness = hiddenLayers.reduce((accu, curr) => {
+                    accu += 1 - Numbers.encode(curr, { min: 1, max: maxNeurons }) * lWeight
+                    return accu
+                }, 0)
+                const hiddenFitness = 1 - Numbers.encode(hiddenLayers.length, { min: 1, max: hiddenLayers.length })
+                generator.fitness = 1 - (generator.error * 0.5 + hiddenFitness * 0.25 + layerFitness * 0.25)
+            }
+            //this.population.sort((a, b) => a.error - b.error)
+            this.population.sort((a, b) => b.fitness - a.fitness)
+            if (this.population.length < 1) {
+                return undefined
+            } else {
+                this.best = this.population[0]
+            }
+            error = this.best.error
+            const pivot = this.population.length * elitism > 2 ? Math.floor(this.population.length * elitism) : 2
             const elite = this.population.slice(0, pivot)
-            const breed = Trainer.breed(elite, { populationSize })
-            error = elite[0].error
-            this.population = breed
-            /* const bnomes = breed.reduce((accu, curr) => { accu.push(curr.genome); return accu }, [])
-            console.table(bnomes.slice(0, 3)) */
+            this.population = Trainer.breed(elite, {
+                populationSize,
+                mutationRate,
+                mixRands: 1 / 2,
+                settings: {
+                    maxLayers,
+                    maxNeurons
+                }
+            })
             if (callback && callbackCnt === callbackPeriod) {
-                callback({ maxGenerations, error })
+                callback({
+                    iterations: maxGenerations - iterations + 1,
+                    error,
+                    best: this.best
+                })
                 callbackCnt--
                 callbackCnt = callbackCnt ? callbackCnt : callbackPeriod
             }
-            maxGenerations--
+            iterations--
         }
-        return this.population[0]
+        return this.best
     }
-
 }
 
 module.exports = {

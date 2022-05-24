@@ -12,15 +12,17 @@ describe('Data', function () {
     })
 
     it('should only be builded with parse()', async function () {
-        const test = await Data.parse('./training/simple')
-        assert.equal(test.length, 4)
+        const test1 = await Data.parse([1, 2, 3, 4])
+        assert.equal(test1.length, 4)
+        const test2 = await Data.parse('./training/simple')
+        assert.equal(test2.length, 4)
     })
 
     it('should serialize', async function () {
         const test = await Data.parse('./training/simple')
         const json = test.serialize()
         const obj = JSON.parse(json)
-        //console.log(obj)
+        console.log(obj)
         assert.equal(obj.length, 4)
     })
 

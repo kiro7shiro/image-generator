@@ -46,37 +46,47 @@ describe('Trainer', function () {
         })
         mateA.train(data, options)
         const genome = mateA.toJSON()
-        console.log({
+        /* console.log({
             options: genome.options,
             weights: genome.layers[1].weights
-        })
+        }) */
         Trainer.mutate(genome, { rate: 1 / 10 })
-        console.log({
+        /* console.log({
             options: genome.options,
             weights: genome.layers[1].weights
-        })
+        }) */
     })
 
     this.timeout(100000)
-    /* it('evolve', async function () {
-        const data = await Data.parse('./training/simple')
+    it('evolve', async function () {
+        const data = [
+            {
+                input: [0],
+                output: [1]
+            },
+            {
+                input: [1],
+                output: [0]
+            }
+        ]
+        //const data = await Data.parse('./training/simple')
         const trainer = new Trainer()
-        const callback = info => console.log(info)
+        const callback = info => {return;console.log({ info })}
         const best = trainer.evolve(data, {
             callback,
             callbackPeriod: 1,
-            maxGenerations: 16,
-            populationSize: 128,
-            elitism: 1 / 10,
+            maxGenerations: 2,
+            populationSize: 3,
+            elitism: 1 / 1,
             maxLayers: 4,
             maxNeurons: 16,
             training: {
                 errorThresh: 0.00005,
-                iterations: 50
+                iterations: 2
             }
         })
-        console.log(best.genome)
-    }) */
+        //console.log(best.genome)
+    })
     this.timeout(2000)
 
 })

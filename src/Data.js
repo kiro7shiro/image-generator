@@ -11,10 +11,18 @@ class InitializationError extends Error {
     }
 }
 
+class SaveError extends Error {
+    constructor(msg) {
+        super(msg)
+        this.name = 'SaveError'
+    }
+}
+
 class Data extends Array {
 
     static types = { CLASSIFICATION: 'classification' }
 
+    // TODO : add param for encoding
     /**
      * Read in images from a directory and prepare image data for classification learning.
      * @param {String} location where the data is stored
@@ -54,57 +62,75 @@ class Data extends Array {
      */
     static parse = async function (source) {
         let result = []
-        let location
+        let formatted = 'none'
+        const data = new Data(true)
         switch (typeof source) {
             case 'object':
-                // TODO : parse arrays and objects
                 if (Array.isArray(source)) {
+                    // arrays don't need to be parsed
+                    result = source
+                } else {
+                    // TODO : parse objects
                 }
                 break
 
             case 'string':
                 if (source === '.') source = process.cwd()
-                location = path.parse(path.resolve(source))
+                let location = path.parse(path.resolve(source))
+                formatted = path.format(location)
                 const { ext } = location
                 // TODO : search location for pre compiled data files
                 if (ext === '.json') {
-                    result = JSON.parse(fs.readFileSync(path.format(location)))
+                    result = JSON.parse(fs.readFileSync(formatted))
                 } else {
-                    result = await Data.fromImages(path.format(location))
+                    result = await Data.fromImages(formatted)
                 }
                 break
         }
-        return new Data({ source: result, location: path.format(location) }, true)
+        data.push(...result)
+        data.location = formatted
+        //data.type = Data.types.CLASSIFICATION
+        return data
     }
 
     /**
      * Cannot be called directly use Data.parse() instead.
      */
-    constructor({ source, location } = {}) {
+    constructor() {
         const args = [...arguments]
         const [asyncCall] = args.slice(-1)
         if (asyncCall !== true) throw new InitializationError('Cannot be called directly use Data.parse() instead.')
         super()
-        this.push(...source)
-        this.location = location
-        this.type = Data.types.CLASSIFICATION
     }
 
+    // TODO : add param for decoding
     async toImages({ location, save = false } = {}) {
-        const decoded = []
+
+        if (location) this.location = path.resolve(location)
+        if (!fs.existsSync(this.location) && save) throw new SaveError(`Cannot save data. Location doesn't exists.`)
+
         for (let dCnt = 0; dCnt < this.length; dCnt++) {
+            const decoded = []
             const { output, info, file } = this[dCnt]
             for (let oCnt = 0; oCnt < output.length; oCnt++) {
-                decoded[dCnt] = Numbers.decode(output[oCnt], { max: 255 })
+                //output[dCnt] = Numbers.decode(output[oCnt], { max: 255 })
+                decoded.push(Numbers.decode(output[oCnt], { max: 255 }))
             }
             let raw = new Uint8ClampedArray(decoded)
+            //let raw = new Uint8ClampedArray(output)
             let image = await sharp(raw, { raw: info })
             this[dCnt] = image
+            if (save) {
+                const name = path.basename(file)
+                const dest = path.resolve(location, name)
+                await image.toFile(dest)
+            }
         }
         return this
     }
 
     deserialize(input) {
+        // TODO : everything
         return JSON.parse(input)
     }
 
