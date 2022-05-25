@@ -2,7 +2,6 @@ const fs = require('fs')
 const path = require('path')
 const termkit = require('../node_modules/terminal-kit/lib/termkit.js')
 const term = termkit.terminal
-const Table = require('easy-table')
 const { Command, Option, InvalidArgumentError } = require('commander')
 const { Data, Trainer } = require('../src/Trainer.js')
 const sharp = require('sharp')

@@ -135,7 +135,9 @@ class Trainer {
         }
         // activation
         const part = rate / (Trainer.activations.length - 1)
-        const activations = [genome.options.activation, ...Trainer.activations.filter(actv => actv !== genome.options.activation)]
+        const activations = [genome.options.activation, ...Trainer.activations.filter(function (actv) {
+            return actv !== genome.options.activation
+        })]
         const weights = [Trainer.activations.length - rate]
         for (let wCnt = 1; wCnt < Trainer.activations.length; wCnt++) {
             weights.push(part)
@@ -215,7 +217,7 @@ class Trainer {
                 const generator = this.population[pCnt]
                 const { hiddenLayers } = generator.options
                 const lWeight = 1 / hiddenLayers.length
-                const layerFitness = hiddenLayers.reduce((accu, curr) => {
+                const layerFitness = hiddenLayers.reduce(function (accu, curr) {
                     accu += 1 - Numbers.encode(curr, { min: 1, max: maxNeurons }) * lWeight
                     return accu
                 }, 0)

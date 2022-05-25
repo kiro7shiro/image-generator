@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image-Generator 1.0</title>
+</head>
+<script src="/socket.io/socket.io.js"></script>
+
+<body>
+    <canvas id="screen" width="8" height="8"></canvas>
+</body>
+
+<script>
+    var socket = io()
+    var cvs = document.getElementById('screen')
+    var ctx = cvs.getContext('2d')
+    socket.on('imageData', function (imageData) {
+        console.log({ imageData })
+        const raw = new Uint8ClampedArray(imageData.data, 0, 192)
+        console.log({ raw })
+        // Iterate through every pixel
+        for (let i = 0; i < arr.length; i += 4) {
+            arr[i + 0] = 0;    // R value
+            arr[i + 1] = 190;  // G value
+            arr[i + 2] = 0;    // B value
+            arr[i + 3] = 255;  // A value
+        }
+        var img = ctx.createImageData(8, 8)
+        img.data.set(raw)
+        //const data = new ImageData(raw, 8 ,8)
+        ctx.putImageData(img, 0, 0)
+    })
+</script>
+
+</html>
