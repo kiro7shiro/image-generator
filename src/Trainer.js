@@ -50,7 +50,6 @@ class Trainer {
     }
 
     static breed = function (elite, { populationSize = 1024, mutationRate = 1 / 10, mixRands = 1 / 2, settings = {} } = {}) {
-        settings = Object.assign({}, Trainer.brainDefaults, settings)
         const offsprings = []
         const rands = Math.ceil(populationSize - populationSize * mixRands)
         for (let eCnt = 0; eCnt < populationSize - rands; eCnt++) {
@@ -65,8 +64,9 @@ class Trainer {
             offspringB.fromJSON(genomeB)
             offsprings.push(offspringA, offspringB)
         }
+        const sets = Object.assign({}, Trainer.brainDefaults, settings)
         for (let rCnt = 0; rCnt < rands; rCnt++) {
-            const genomeR = Trainer.makeRandomGenome(settings)
+            const genomeR = Trainer.makeRandomGenome(sets)
             const rand = new brain.NeuralNetwork(genomeR)
             offsprings.push(rand)
         }
@@ -172,6 +172,7 @@ class Trainer {
     constructor() {
         this.population = []
         this.best = undefined
+        this.running = false
     }
 
     /**
@@ -202,7 +203,11 @@ class Trainer {
         let iterations = maxGenerations
         let error = 1
         let callbackCnt = callbackPeriod
+        this.running = true
         while (iterations && error > training.errorThresh) {
+
+            if (!this.running) break
+
             for (let pCnt = 0; pCnt < this.population.length; pCnt++) {
                 const generator = this.population[pCnt]
                 const saveError = function (data) {
@@ -224,8 +229,8 @@ class Trainer {
                 const hiddenFitness = 1 - Numbers.encode(hiddenLayers.length, { min: 1, max: hiddenLayers.length })
                 generator.fitness = 1 - (generator.error * 0.5 + hiddenFitness * 0.25 + layerFitness * 0.25)
             }
-            //this.population.sort((a, b) => a.error - b.error)
-            this.population.sort((a, b) => b.fitness - a.fitness)
+            this.population.sort((a, b) => a.error - b.error)
+            //this.population.sort((a, b) => b.fitness - a.fitness)
             if (this.population.length < 1) {
                 return undefined
             } else {
@@ -254,6 +259,7 @@ class Trainer {
             }
             iterations--
         }
+        this.running = false
         return this.best
     }
 }

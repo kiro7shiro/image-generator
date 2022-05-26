@@ -1,0 +1,18 @@
+#options {
+    display: block;
+}
+
+#evolution {
+    display: grid;
+    width: 25%;
+}
+
+#training {
+    display: grid;
+    width: 25%;
+}
+
+#settings {
+    display: grid;
+    width: 25%;
+}

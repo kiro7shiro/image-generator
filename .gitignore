@@ -1,4 +1,5 @@
 training/results
+www/public/training/results
 debug
 node_modules
 package-lock.json

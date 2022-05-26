@@ -5,34 +5,91 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <title>Image-Generator 1.0</title>
 </head>
 <script src="/socket.io/socket.io.js"></script>
+<style>
+    ul#console {
+        list-style-type: none;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        line-height: 25px;
+        padding-left: 5px;
+        height: 250px;
+        min-height: 250px;
+        max-height: 100%;
+        overflow: hidden;
+        overflow-y: scroll;
+    }
+
+    ul#console li {
+        border-bottom: solid 1px #80808038;
+    }
+</style>
 
 <body>
-    <canvas id="screen" width="8" height="8"></canvas>
+    <div class="w3-container">
+        <h1>Image-Generator 1.0</h1>
+    </div>
+    <div class="w3-container">
+        <button id="startButton" class="w3-button w3-gray">Start</button>
+    </div>
+
+    <div class="w3-main w3-padding">
+
+        <div class="w3-row">
+            <div class="w3-half">
+                <div class="w3-row" id="options">
+                    <div id="evolution" class="w3-third">
+                        <h3>evolution</h3>
+                        <label for="elitsim">elitism</label>
+                        <input id="elitism" type="number">
+                        <label for="maxGenerations">maxGenerations</label>
+                        <input id="maxGenerations" type="number">
+                        <label for="mutationRate">mutationRate</label>
+                        <input id="mutationRate" type="number">
+                        <label for="populationSize">populationSize</label>
+                        <input id="populationSize" type="number">
+                    </div>
+                    <div id="training" class="w3-third">
+                        <h3>training</h3>
+                        <label for="iterations">iterations</label>
+                        <input id="iterations" type="number">
+                        <label for="errorThresh">errorThresh</label>
+                        <input id="errorThresh" type="number">
+                        <label for="learningRate">learningRate</label>
+                        <input id="learningRate" type="number">
+                        <label for="momentum">momentum</label>
+                        <input id="momentum" type="number">
+                    </div>
+                    <div id="settings" class="w3-third">
+                        <h3>settings</h3>
+                        <label for="maxLayers">maxLayers</label>
+                        <input id="maxLayers" type="number">
+                        <label for="maxNeurons">maxNeurons</label>
+                        <input id="maxNeurons" type="number">
+                    </div>
+                </div>
+            </div>
+            <div id="report" class="w3-half">
+                <div class="w3-container">
+                    <ul id="console"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="w3-row w3-content">
+            <div id="targets" class="w3-half"></div>
+            <div id="results" class="w3-half"></div>
+        </div>
+
+    </div>
+
 </body>
 
-<script>
-    var socket = io()
-    var cvs = document.getElementById('screen')
-    var ctx = cvs.getContext('2d')
-    socket.on('imageData', function (imageData) {
-        console.log({ imageData })
-        const raw = new Uint8ClampedArray(imageData.data, 0, 192)
-        console.log({ raw })
-        // Iterate through every pixel
-        for (let i = 0; i < arr.length; i += 4) {
-            arr[i + 0] = 0;    // R value
-            arr[i + 1] = 190;  // G value
-            arr[i + 2] = 0;    // B value
-            arr[i + 3] = 255;  // A value
-        }
-        var img = ctx.createImageData(8, 8)
-        img.data.set(raw)
-        //const data = new ImageData(raw, 8 ,8)
-        ctx.putImageData(img, 0, 0)
-    })
-</script>
+<script src="/client.js"></script>
 
 </html>

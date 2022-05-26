@@ -1,4 +1,4 @@
-const termkit = require('../node_modules/terminal-kit/lib/termkit.js')
+/* const termkit = require('../node_modules/terminal-kit/lib/termkit.js')
 const term = termkit.terminal
 const sharp = require('sharp')
 const getPixels = require('get-pixels')
@@ -49,4 +49,4 @@ describe('image', function () {
         console.log(image)
         //screen.draw()
     })
-})
+}) */

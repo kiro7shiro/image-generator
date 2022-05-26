@@ -2,7 +2,7 @@ const assert = require('assert')
 const { Data } = require('../src/Data.js')
 
 describe('Data', function () {
-
+/* 
     it('should not initialize with params', function () {
         try {
             const test = new Data('./training/simple')
@@ -24,6 +24,12 @@ describe('Data', function () {
         const obj = JSON.parse(json)
         console.log(obj)
         assert.equal(obj.length, 4)
+    }) */
+
+    it('fromImages2', async function () {
+        const test = await Data.fromImages2(`./www/public/training/simple/`)
+        console.log(test[0].output.length)
+        console.log(test[0].output)
     })
 
 })

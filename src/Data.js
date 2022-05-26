@@ -21,6 +21,50 @@ class SaveError extends Error {
 class Data extends Array {
 
     static types = { CLASSIFICATION: 'classification' }
+    static rgbaMax = 4294967295
+
+    static rgbaToInt = function (r, g, b, a) {
+        const bytes = Uint8Array.from([r, g, b, a])
+        const dataView = new DataView(bytes.buffer)
+        return dataView.getUint32(0)
+    }
+
+    static intToRgba = function (int) {
+        const bytes = new Uint8Array(4)
+        const dataView = new DataView(bytes.buffer)
+        dataView.setUint32(0, int)
+        return new Uint8Array(dataView.buffer)
+    }
+
+    static fromImages2 = async function (location) {
+        const supported = ['.jpg', '.png', '.webp', '.gif', '.avif', '.tif', '.svg']
+        const dir = fs.readdirSync(location).filter(f => {
+            const file = path.parse(f)
+            const found = supported.find(e => e === file.ext) ? true : false
+            return found
+        })
+        const result = []
+        for (let fCnt = 0; fCnt < dir.length; fCnt++) {
+            const file = path.resolve(location, dir[fCnt])
+            const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true })
+            const output = new Uint8ClampedArray(data.buffer)
+            const encoded = []
+            for (let oCnt = 0; oCnt < output.length; oCnt += 4) {
+                const bytes = output.slice(oCnt, oCnt + 4)
+                const intRgba = Data.rgbaToInt(...bytes)
+                encoded.push(Numbers.encode(intRgba, { max: Data.rgbaMax }))
+            }
+            result.push(
+                {
+                    input: [Numbers.encode(fCnt, { max: dir.length - 1 })],
+                    output: encoded,
+                    info,
+                    file
+                }
+            )
+        }
+        return result
+    }
 
     // TODO : add param for encoding
     /**
@@ -118,6 +162,31 @@ class Data extends Array {
             }
             let raw = new Uint8ClampedArray(decoded)
             //let raw = new Uint8ClampedArray(output)
+            let image = await sharp(raw, { raw: info })
+            this[dCnt] = image
+            if (save) {
+                const name = path.basename(file)
+                const dest = path.resolve(location, name)
+                await image.toFile(dest)
+            }
+        }
+        return this
+    }
+
+    async toImages2({ location, save = false } = {}) {
+
+        if (location) this.location = path.resolve(location)
+        if (!fs.existsSync(this.location) && save) throw new SaveError(`Cannot save data. Location doesn't exists.`)
+
+        for (let dCnt = 0; dCnt < this.length; dCnt++) {
+            const decoded = []
+            const { output, info, file } = this[dCnt]
+            for (let oCnt = 0; oCnt < output.length; oCnt++) {
+                const rgbaInt = Numbers.decode(output[oCnt], { max: Data.rgbaMax })
+                const bytes = Data.intToRgba(rgbaInt)
+                decoded.push(...bytes)
+            }
+            let raw = new Uint8ClampedArray(decoded)
             let image = await sharp(raw, { raw: info })
             this[dCnt] = image
             if (save) {
