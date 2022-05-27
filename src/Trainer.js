@@ -53,8 +53,10 @@ class Trainer {
         const offsprings = []
         const rands = Math.ceil(populationSize - populationSize * mixRands)
         for (let eCnt = 0; eCnt < populationSize - rands; eCnt++) {
-            const parentA = elite[Numbers.randInt({ max: elite.length })].toJSON()
-            const parentB = elite[Numbers.randInt({ max: elite.length })].toJSON()
+            const rndA = Numbers.randInt({ max: elite.length })
+            const rndB = Numbers.randInt({ max: elite.length })
+            const parentA = elite[rndA].toJSON()
+            const parentB = elite[rndB].toJSON()
             const [genomeA, genomeB] = Trainer.mate(parentA, parentB)
             Trainer.mutate(genomeA, mutationRate)
             Trainer.mutate(genomeB, mutationRate)
@@ -110,7 +112,7 @@ class Trainer {
             // mutate weights and biases
             // build a lookup table of the values which will be mutated based on the probability rate
             // so we only have to iterate over the values that are actually changing
-            const layer = genome.layers[lCnt]
+            const layer = Object.assign({}, genome.layers[lCnt])
             const nLookup = [...new Array(layer.weights.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
             const bLookup = [...new Array(layer.biases.length)].map((v, idx) => v = Numbers.probability(rate) ? idx : false).filter(v => v !== false)
             for (let nCnt = 0; nCnt < nLookup.length; nCnt++) {
@@ -181,7 +183,7 @@ class Trainer {
      * @param {Object} [options]
      * @param {Object} [options.evolution] evolution options
      * @param {Object} [options.training] training options
-     * @param {Number} [options.brain] brain options
+     * @param {Number} [options.settings] brain options
      */
     async evolve(data, { evolution } = {}) {
         const options = Object.assign({}, Trainer.evolutionDefaults, evolution)
@@ -226,8 +228,8 @@ class Trainer {
                     accu += 1 - Numbers.encode(curr, { min: 1, max: maxNeurons }) * lWeight
                     return accu
                 }, 0)
-                const hiddenFitness = 1 - Numbers.encode(hiddenLayers.length, { min: 1, max: hiddenLayers.length })
-                generator.fitness = 1 - (generator.error * 0.5 + hiddenFitness * 0.25 + layerFitness * 0.25)
+                const hiddenFitness = 1 - Numbers.encode(hiddenLayers.length, { min: 1, max: maxLayers })
+                generator.fitness = layerFitness
             }
             this.population.sort((a, b) => a.error - b.error)
             //this.population.sort((a, b) => b.fitness - a.fitness)
@@ -248,6 +250,7 @@ class Trainer {
                     maxNeurons
                 }
             })
+            this.used = process.memoryUsage()
             if (callback && callbackCnt === callbackPeriod) {
                 callback({
                     iterations: maxGenerations - iterations + 1,

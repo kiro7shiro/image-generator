@@ -65,7 +65,6 @@ socket.on('update', function (info) {
     } else {
         requestAnimationFrame(updateResults)
     }
-    const reportDiv = document.getElementById('report')
     let reportTxt = `iterations: ${iterations}\nerror: ${error}\n`
     reportTxt += JSON.stringify(genome, null, 4)
     const lines = reportTxt.split('\n')

@@ -122,7 +122,7 @@ program
         })
 
         // *logic
-        const evolutionText = [`iterations\t\t\t\terror`, '-'.repeat(term.width / 2 - 1), '']
+        const evolutionText = [`iterations\t\t\t\terror\t\t\t\tfitness`, '-'.repeat(term.width / 2 - 1), '']
         const optionsText = `Options:\n\n` + options.toString({
             names: ['elitism', 'maxGenerations', 'mutationRate', 'populationSize', 'training', 'brain', 'logPeriod', 'restart']
         })
@@ -187,10 +187,15 @@ program
             const { iterations, error, best } = info
             await makeImages(best, '../training/results/')
             await drawImages('../training/results/')
-            evolutionText[2] = `${iterations}\t\t\t\t${error}\t${best.fitness}`
+            evolutionText[2] = `${iterations}\t\t\t\t${error}\t\t\t\t${best.fitness}`
             evolutionBox.setContent(evolutionText.join('\n'))
             const bestText = JSON.stringify(best.options, null, 4)
             bestBox.setContent(bestText)
+            let usedTxt = ``
+            for (let key in trainer.used) {
+                usedTxt += `${key} ${Math.round(trainer.used[key] / 1024 / 1024 * 100) / 100} MB\n`
+            }
+            term.moveTo(1, term.height - 6, usedTxt)
             term.moveTo(1, term.height - 1)
         }
 
