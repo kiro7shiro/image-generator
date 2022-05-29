@@ -1,3 +1,10 @@
+/**
+ * Train
+ * CLI debug tool for training a brain.js neural network on a given data set.
+ */
+
+'use strict';
+
 const fs = require('fs')
 const path = require('path')
 const termkit = require('../node_modules/terminal-kit/lib/termkit.js')
