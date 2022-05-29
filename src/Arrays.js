@@ -36,6 +36,9 @@ class Arrays {
         }
         for (let cCnt = pivot; cCnt < length; cCnt++) {
             [arrayA[cCnt], arrayB[cCnt]] = [arrayB[cCnt], arrayA[cCnt]]
+            /* let temp = arrayA[cCnt]
+            arrayA[cCnt] = arrayB[cCnt]
+            arrayB[cCnt] = temp */
         }
         if (pivots.length) [arrayA, arrayB] = Arrays.crossover(arrayA, arrayB, pivots)
         return [arrayA, arrayB]
