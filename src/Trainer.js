@@ -253,15 +253,15 @@ class Trainer {
                 }, 0)
                 layerFitness = layerFitness / maxLayers
                 //const hiddenFitness = 1 - Numbers.encode(hiddenLayers.length, { min: 1, max: maxLayers })
-                generator.fitness = layerFitness
+                generator.fitness = 1 - layerFitness
             }
             // sort population
-            this.population.sort((a, b) => {
-                return a.error - b.error
-            })
             /* this.population.sort((a, b) => {
-                return a.error - b.error || b.fitness - a.fitness
+                return a.error - b.error
             }) */
+            this.population.sort((a, b) => {
+                return a.error - b.error || b.fitness - a.fitness
+            })
             // set current run infos
             this.best = this.population[0]
             this.error = this.best.error

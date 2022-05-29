@@ -1,23 +1,29 @@
+/**
+ * Evolve
+ * CLI debug tool for evolving brain.js neural networks on a given data set.
+ */
+
+'use strict';
+
 const fs = require('fs')
 const path = require('path')
 const termkit = require('../node_modules/terminal-kit/lib/termkit.js')
 const term = termkit.terminal
 const { Command, Option, InvalidArgumentError } = require('commander')
+const brain = require('brain.js')
+const Table = require('easy-table')
 const { Data, Trainer } = require('../src/Trainer.js')
-const sharp = require('sharp')
 
 const program = new Command
 
+//* commander.js helper functions
 function commanderParseInt(value, dummyPrevious) {
-    // parseInt takes a string and a radix
     const parsedValue = parseInt(value, 10)
     if (isNaN(parsedValue)) throw new InvalidArgumentError('Not a number.')
     return parsedValue
 }
-
 function commanderParseObject(value, prev) {
     value = JSON.parse(value)
-    //console.log({ value, prev })
     return Object.assign(prev, value)
 }
 
@@ -29,37 +35,14 @@ program
     .addOption(new Option('-m --mutationRate <number>', '').default(1 / 10).argParser(parseFloat))
     .addOption(new Option('-p --populationSize <number>', 'size of population').default(128).argParser(commanderParseInt))
     .addOption(new Option('-t --training <object>', 'training options').default(Trainer.trainDefaults).argParser(commanderParseObject))
-    .addOption(new Option('-b --brain <object>', 'brain options').default(Trainer.brainDefaults).argParser(commanderParseObject))
+    .addOption(new Option('-s --settings <object>', 'brain options').default(Trainer.brainDefaults).argParser(commanderParseObject))
     .addOption(new Option('-l --logPeriod <number>', 'Iterations between logging out').default(10).argParser(commanderParseInt))
-    .addOption(new Option('-r --restart', 'Restart evolution').default(false))
     .action(async function (source) {
 
-        // *init
-        const options = Object.assign({}, Trainer.evolutionDefaults, program.opts())
-        options.toString = function ({ names = [] } = {}) {
-            let text = ''
-            for (const key in this) {
-                if (names.length && !names.find(n => n === key)) continue
-                const value = this[key]
-                switch (typeof value) {
-                    case 'object':
-                        if (Array.isArray(value)) {
-                            text += `${key} : [${value.join()}]\n`
-                        } else {
-                            text += `${key} : ${JSON.stringify(value, null, 4)}\n`
-                        }
-                        break
-
-                    default:
-                        if (typeof value !== 'function') {
-                            text += `${key} : ${value}\n`
-                        }
-                        break
-                }
-            }
-            return text
-        }
         term.clear()
+
+        // *initialize program vars
+        const options = Object.assign({}, Trainer.evolutionDefaults, program.opts())
         const document = term.createDocument({
             backgroundAttr: { bgColor: 'default' }
         })
@@ -100,7 +83,23 @@ program
             y: 0,
             attr: { bgColor: 'default' }
         })
+        const debugBox = new termkit.TextBox({
+            parent: document,
+            content: '',
+            contentHasMarkup: 'legacyAnsi',
+            x: 0,
+            y: 0,
+            attr: { bgColor: 'default' }
+        })
         const bestBox = new termkit.TextBox({
+            parent: document,
+            content: '',
+            contentHasMarkup: 'legacyAnsi',
+            x: 0,
+            y: 0,
+            attr: { bgColor: 'default' }
+        })
+        const infoBox = new termkit.TextBox({
             parent: document,
             content: '',
             contentHasMarkup: 'legacyAnsi',
@@ -122,25 +121,69 @@ program
         })
 
         // *logic
-        const evolutionText = [`iterations\t\t\t\terror\t\t\t\tfitness`, '-'.repeat(term.width / 2 - 1), '']
-        const optionsText = `Options:\n\n` + options.toString({
-            names: ['elitism', 'maxGenerations', 'mutationRate', 'populationSize', 'training', 'brain', 'logPeriod', 'restart']
-        })
-        optionsBox.setContent(optionsText)
+        const evolutionsTable = new Table
+        const infoTable = new Table
+        
+        evolutionsTable.cell('iterations', 0)
+        evolutionsTable.cell('error', 0)
+        evolutionsTable.cell('fitness', 0)
+        evolutionsTable.newRow()
+        options.callback = 'drawEvolution'
+        options.callbackPeriod = options.logPeriod
+        const optionsText = `Options:\n${'-'.repeat(term.width / 4 - 1)}\n`
+        const formatOptions = function (item, cell) {
+            for (const key in item) {
+                if (!Object.hasOwnProperty.call(item, key)) continue
+                const val = item[key]
+                if (typeof val === 'function') continue
+                if (typeof val === 'object') {
+                    cell(`${key}`, `\n${JSON.stringify(item[key], null, 4)}`)
+                } else {
+                    cell(`${key}`, `${item[key]}`)
+                }
+            }
+        }
+        optionsBox.setContent(optionsText + Table.print(options, formatOptions))
+        const bestTxt = `Best genome:\n${'-'.repeat(term.width / 4 - 1)}\n`
+        const debugTxt = `Memory usage:\n${'-'.repeat(term.width / 4 - 1)}\n`
 
+        const infoHeaders = ['error', 'fitness', 'binaryThresh', 'leakyReluAlpha', 'hiddenLayers', 'activation']
+        const formatInfos = function (item, cell) {
+            for (const key in item) {
+                if (!Object.hasOwnProperty.call(item, key)) continue
+                if (!infoHeaders.includes(key)) continue
+                const val = item[key]
+                if (typeof val === 'function') continue
+                if (typeof val === 'object') {
+                    if (Array.isArray(val)) {
+                        cell(`${key}`, `${val.join()}`)
+                    } else {
+                        cell(`${key}`, `\n${JSON.stringify(item[key], null, 4)}`)    
+                    }
+                } else {
+                    cell(`${key}`, `${item[key]}`)
+                }
+            }
+        }
+
+        // parse data source into training set and start evolution
         const data = await Data.parse(source)
-        const trainer = new Trainer()
+        const trainer = new Trainer
         options.callback = drawEvolution
         options.callbackPeriod = options.logPeriod
-        let best = undefined
-        do {
-            best = await trainer.evolve(data, { evolution: options })
-        } while (!best && options.restart)
-        if (!best) term.moveTo(1, term.height - 3, 'evolution failed...')
-        terminate()
+        try {
+            let best = await trainer.evolve([...data], { evolution: options })
+            // TODO
+        } catch (error) {
+            term.moveTo(1, term.height - 1, '\n\n')
+            console.error(error)
+        } finally {
+            terminate()
+        }
 
-        async function makeImages(best, location) {
+        async function makeImages(bestJSON, location) {
             const results = await Data.parse([])
+            const best = new brain.NeuralNetwork().fromJSON(bestJSON)
             for (let dCnt = 0; dCnt < data.length; dCnt++) {
                 const { input, info, file } = data[dCnt]
                 let output = Object.values(best.run(input))
@@ -160,45 +203,84 @@ program
         }
 
         function resize() {
-            const height = Math.floor(term.height * 1 / 3)
+            const height = term.height - 2
             const width = term.width - 2
             screen.resize({ xmin: 0, ymin: 0, xmax: 35, ymax: 4 })
             evolutionBox.setSizeAndPosition({
                 x: 1,
                 y: screen.y + screen.height + 1,
                 height: 3,
-                width: width / 2
-            })
-            optionsBox.setSizeAndPosition({
-                x: width / 2 + 4,
-                y: screen.y + screen.height + 1,
-                height: height * 2,
-                width: width / 2
+                width: width / 4
             })
             bestBox.setSizeAndPosition({
+                x: width * 0.25,
+                y: screen.y + screen.height + 1,
+                height: 7,
+                width: width / 4
+            })
+            optionsBox.setSizeAndPosition({
+                x: width * 0.5,
+                y: screen.y + screen.height + 1,
+                height: height,
+                width: width / 4
+            })
+            debugBox.setSizeAndPosition({
+                x: width * 0.75,
+                y: screen.y + screen.height + 1,
+                height: height,
+                width: width / 4
+            })
+            infoBox.setSizeAndPosition({
                 x: 1,
-                y: evolutionBox.outputY + 4,
-                height: 40,
-                width: width / 2
+                y: bestBox.outputY + bestBox.outputHeight + 1,
+                height: height / 2 - 1,
+                width: width / 2 - 1
             })
         }
 
-        async function drawEvolution(info) {
-            const { iterations, error, best } = info
+        /**
+         * Draw evolution details to the screen.
+         * @param {Object} info information's about the evolution process
+         */
+        async function drawEvolution() {
+
+            term.hideCursor(true)
+
+            const { iterations, error } = trainer
+            const best = trainer.population[0]
+            const topTen = trainer.population.slice(0, 10).map(function (generator) {
+                const result = Object.assign({}, { error: generator.error, fitness: generator.fitness }, generator.options)
+                return result
+            })
+
+            evolutionsTable.rows[0].iterations = iterations
+            evolutionsTable.rows[0].error = error
+            evolutionsTable.rows[0].fitness = best.fitness
+            evolutionBox.setContent(evolutionsTable.toString())
+
+            bestBox.setContent(bestTxt + Table.print(best.options))
+
+            infoBox.setContent(Table.print(topTen, formatInfos))
+
+            const memoryTxt = Table.print(trainer.used, function (obj, cell) {
+                for (const key in obj) {
+                    if (!Object.hasOwnProperty.call(obj, key)) continue
+                    cell(`${key}`, `${Math.round(obj[key] / 1024 / 1024 * 100) / 100} MB`)
+                }
+            })
+            debugBox.setContent(debugTxt + memoryTxt)
+
             await makeImages(best, '../training/results/')
             await drawImages('../training/results/')
-            evolutionText[2] = `${iterations}\t\t\t\t${error}\t\t\t\t${best.fitness}`
-            evolutionBox.setContent(evolutionText.join('\n'))
-            const bestText = JSON.stringify(best.options, null, 4)
-            bestBox.setContent(bestText)
-            let usedTxt = ``
-            for (let key in trainer.used) {
-                usedTxt += `${key} ${Math.round(trainer.used[key] / 1024 / 1024 * 100) / 100} MB\n`
-            }
-            term.moveTo(1, term.height - 6, usedTxt)
+
             term.moveTo(1, term.height - 1)
+            term.hideCursor(false)
         }
 
+        /**
+         * Draw result images on the screen.
+         * @param {String} location where the results are stored
+         */
         async function drawImages(location) {
             if (!fs.existsSync(location)) throw new Error(`Location doesn't exists.`)
             const supported = ['.jpg', '.png', '.webp', '.gif', '.avif', '.tif', '.svg']
@@ -211,8 +293,8 @@ program
             let x = 0
             for (let iCnt = 0; iCnt < dir.length; iCnt++) {
                 const file = dir[iCnt]
+                const resolved = path.resolve(location, file)
                 try {
-                    const resolved = path.resolve(location, file)
                     const image = await termkit.ScreenBuffer.loadImage(
                         resolved,
                         {
@@ -226,18 +308,14 @@ program
                     image.draw()
                 } catch (error) {
                     //console.error(error)
-                    //console.log({ file })
                 }
             }
-
-            term.hideCursor(true)
             //let stats = screen.draw({ delta: true })
             screen.draw({ delta: true })
-            term.hideCursor(false)
         }
 
         // *startup
-        term.grabInput({ mouse: 'button' })
+        term.grabInput(true)
 
     })
 
